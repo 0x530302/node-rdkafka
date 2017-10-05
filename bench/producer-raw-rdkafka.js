@@ -20,7 +20,7 @@ var done = false;
 var host = process.argv[2] || '127.0.0.1:9092';
 var topicName = process.argv[3] || 'test';
 var compression = process.argv[4] || 'gzip';
-var MAX = process.argv[5] || 10000000;
+var MAX = process.argv[5] || 10000;
 
 var producer = new Kafka.Producer({
   'metadata.broker.list': host,
@@ -80,8 +80,7 @@ crypto.randomBytes(4096, function(ex, buffer) {
         totalComplete += 1;
         if (totalComplete === MAX) {
           shutdown();
-        }
-        if (total < MAX) {
+        } else if (total < MAX) {
           total += 1;
 
           // This is 100% sync so we need to setImmediate to give it time
@@ -97,7 +96,16 @@ crypto.randomBytes(4096, function(ex, buffer) {
       console.error(err);
       process.exit(1);
     })
-    .on('disconnected', shutdown);
+    .once('disconnected', function() {
+      var ended = new Date().getTime();
+      var elapsed = ended - started;
+
+      // console.log('Ended %s', ended);
+      console.log('total: %d messages over %d ms', total, elapsed);
+
+      console.log('%d messages / second', parseInt(total / (elapsed / 1000)));
+      process.exit();
+    });
 
 });
 
@@ -112,14 +120,6 @@ function shutdown(e) {
 
   producer.disconnect(function() {
     clearTimeout(killTimer);
-    var ended = new Date().getTime();
-    var elapsed = ended - started;
-
-    // console.log('Ended %s', ended);
-    console.log('total: %d messages over %d ms', total, elapsed);
-
-    console.log('%d messages / second', parseInt(total / (elapsed / 1000)));
-    process.exit();
   });
 
 }
